@@ -22,6 +22,7 @@
 #endif // _DEBUG
 
 #include <iostream>
+#include <string>
 
 constexpr const char* serverPort_c = "16969";
 
@@ -46,10 +47,12 @@ inline bool initWinSock(void) {
 }
 
 inline void pushHeader(char* _buf, header_t& _header, MSG_TYPE _type) {
-	ZeroMemory(_buf, _header.msgSize); // eventually sendbuflen_c 
+	debugf("pushing header with %llu code\n", _type);
+	if(_header.msgSize != 0)
+		ZeroMemory(_buf, _header.msgSize); // eventually sendbuflen_c 
 	_header = {};
 	_header.msgSize = 16;
-	_header.msgType = CONNECTION_END;
+	_header.msgType = _type;
 	memcpy(_buf, &_header, sizeof(_header));
 	return;
 }
