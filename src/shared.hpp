@@ -46,8 +46,15 @@ inline bool initWinSock(void) {
 	return true;
 }
 
+inline bool setBufferSizes(SOCKET& _sock, int32_t _recvBuffSize, int32_t _sendBuffSize) {
+	if (setsockopt(_sock, SOL_SOCKET, SO_RCVBUF, (const char*)&(_recvBuffSize), sizeof(_recvBuffSize)) == SOCKET_ERROR)
+		return false;
+	if (setsockopt(_sock, SOL_SOCKET, SO_SNDBUF, (const char*)&(_sendBuffSize), sizeof(_sendBuffSize)) == SOCKET_ERROR)
+		return false;
+	return true;
+}
+
 inline void pushHeader(char* _buf, header_t& _header, MSG_TYPE _type) {
-	debugf("pushing header with %llu code\n", _type);
 	if(_header.msgSize != 0)
 		ZeroMemory(_buf, _header.msgSize); // eventually sendbuflen_c 
 	_header = {};

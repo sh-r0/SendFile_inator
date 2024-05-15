@@ -19,14 +19,6 @@ bool createClientSocket(char* _targetIp, SOCKET& _clientSock, addrinfo*& _server
 	return true;
 }
 
-inline bool setBufferSizes(SOCKET& _sock, int32_t _recvBuffSize, int32_t _sendBuffSize) {
-	if (setsockopt(_sock, SOL_SOCKET, SO_SNDBUF, (const char*)&(_recvBuffSize), sizeof(_recvBuffSize)) == SOCKET_ERROR)
-		return false;
-	if (setsockopt(_sock, SOL_SOCKET, SO_SNDBUF, (const char*)&(_sendBuffSize), sizeof(_sendBuffSize)) == SOCKET_ERROR)
-		return false;
-	return true;
-}
-
 int32_t main(int32_t _argc, char** _argv) {
 	if (_argc < 2) {
 		printf("Incorrect calling method!\nShould be ./client <server ip>\n");
@@ -66,8 +58,6 @@ int32_t main(int32_t _argc, char** _argv) {
 	header_t currHeader{};
 	FILE* currFile = nullptr;
 	while (true) { //mainLoop
-		ZeroMemory(recvBuf, recvBufLen_c);
-		ZeroMemory(sendBuf, sendBufLen_c);
 		int32_t bytesReceived = recv(clientSock, recvBuf, recvBufLen_c, 0);
 		debugf("bytesReceived: %i\n", bytesReceived);
 		if (bytesReceived == 0) {
@@ -78,7 +68,6 @@ int32_t main(int32_t _argc, char** _argv) {
 		}
 
 		header_t recvHeader = *(header_t*)recvBuf;
-		debugf("header: id = %llu | size = %llu\n", recvHeader.msgType, recvHeader.msgSize);
 		if (bytesReceived < sizeof(header_t)) {
 			fprintf(stderr, "Bytes received mismatch!\nGot %i should be %llu\n", bytesReceived, recvHeader.msgSize);
 			pushHeader(sendBuf, currHeader, SEND_RETRY);

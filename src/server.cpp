@@ -1,6 +1,6 @@
 #include "shared.hpp"
 
-#include <filesystem> //todo move to shared
+#include <filesystem> 
 #include <vector>
 
 bool createListenSocket(SOCKET& _listenSock) {
@@ -41,31 +41,12 @@ int32_t main(int32_t _argc, char** _argv) {
 		return EXIT_FAILURE;
 	}
 	std::vector<std::filesystem::path> filepaths{ _argv[1] };
-	debugf("sending file %s\n", filepaths.front().filename().string().c_str());
 	SOCKET listenSock;
 	if (!initWinSock()) 
 		return EXIT_FAILURE;
 	if (!createListenSocket(listenSock)) 
 		return EXIT_FAILURE;
 
-	constexpr const int32_t recvBufLen_c = 1024;
-	constexpr const int32_t sendBufLen_c = 8 * 1024; //variable in future
-	char recvBuf[recvBufLen_c];
-	char sendBuf[sendBufLen_c];
-	ZeroMemory(recvBuf, recvBufLen_c);
-	ZeroMemory(sendBuf, sendBufLen_c);
-	if (setsockopt(listenSock, SOL_SOCKET, SO_SNDBUF, (const char*)&(sendBufLen_c), sizeof(sendBufLen_c)) == SOCKET_ERROR) {
-		fprintf(stderr, "Couldn't set send buffer size\n");
-		closesocket(listenSock);
-		WSACleanup();
-		return EXIT_FAILURE;
-	}
-	if (setsockopt(listenSock, SOL_SOCKET, SO_RCVBUF, (const char*)&(recvBufLen_c), sizeof(recvBufLen_c)) == SOCKET_ERROR) {
-		fprintf(stderr, "Couldn't set receive buffer size\n");
-		closesocket(listenSock);
-		WSACleanup();
-		return EXIT_FAILURE;
-	}
 	if (listen(listenSock, SOMAXCONN) == SOCKET_ERROR) {
 		fprintf(stderr, "Couldn't listen on bound socket!\n");
 		closesocket(listenSock);
@@ -80,16 +61,31 @@ int32_t main(int32_t _argc, char** _argv) {
 		if (clientSock == SOCKET_ERROR) clientSock = INVALID_SOCKET;
 	 }
 
+	constexpr const int32_t recvBufLen_c = 1024;
+	constexpr const int32_t sendBufLen_c = 8 * 1024; //variable in future
+	char recvBuf[recvBufLen_c];
+	char sendBuf[sendBufLen_c];
+	ZeroMemory(recvBuf, recvBufLen_c);
+	ZeroMemory(sendBuf, sendBufLen_c);
+
+	if (!setBufferSizes(clientSock, recvBufLen_c, sendBufLen_c)) {
+		fprintf(stderr, "Couldn't set buffer size\n");
+		closesocket(listenSock);
+		closesocket(clientSock);
+		WSACleanup();
+		return EXIT_FAILURE;
+	}
+
 	FILE* inputFile = fopen(filepaths.front().string().c_str(), "rb");
+	std::string currFilename = filepaths.front().filename().string();
 	uint64_t leftSize = std::filesystem::file_size(filepaths.front());
 	if (!inputFile) {			//todo supporting many files; ending on it for now
-		fprintf(stderr, "Couldn't open file at %s\n", filepaths.front().string().c_str());
+		fprintf(stderr, "Couldn't open file at %s\n", currFilename.c_str());
 		closesocket(listenSock);
 		WSACleanup();
 		return EXIT_FAILURE;
 	}
 
-	std::string currFilename = filepaths.front().filename().string();
 	header_t currHeader{};
 	currHeader.msgSize = sizeof(header_t) + 8 + currFilename.size();
 	currHeader.msgType = SEND_FILE_DATA;
@@ -106,8 +102,6 @@ int32_t main(int32_t _argc, char** _argv) {
 	}
 
 	while (true) { //mainLoop
-		ZeroMemory(sendBuf, sendBufLen_c);
-		ZeroMemory(recvBuf, recvBufLen_c);
 		int32_t bytesReceived = recv(clientSock,recvBuf,recvBufLen_c,0);
 		debugf("bytesReceived: %i\n", bytesReceived);
 		if (bytesReceived == 0)
@@ -118,7 +112,6 @@ int32_t main(int32_t _argc, char** _argv) {
 		}
 		
 		header_t recvHeader = *(header_t*)recvBuf;
-		debugf("header: id = %llu | size = %llu\n", recvHeader.msgType, recvHeader.msgSize);
 		if (bytesReceived < sizeof(header_t)) {
 			fprintf(stderr, "Bytes received mismatch!\nGot %i should be %llu\n", bytesReceived, recvHeader.msgSize);
 			pushHeader(sendBuf, currHeader, SEND_RETRY);
@@ -167,7 +160,7 @@ int32_t main(int32_t _argc, char** _argv) {
 		} //switch
 	 }
 _mainloopEnd_:
-	debugf("Leaving app gracefully\n");
+	debugf("Closing app...\n");
 	closesocket(clientSock);
 	closesocket(listenSock);
 	WSACleanup();
