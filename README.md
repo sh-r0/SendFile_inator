@@ -1,6 +1,5 @@
 # SendFile_inator
-A simple TCP application sending files and receiving it on client side. It's written in c++ and currently supports Windows operating system.  
-It's worth noting that program doesn't support port forwarding currently.
+A simple TCP application sending files and receiving it on client side. It's written in c++ and currently supports Windows operating system. It's worth noting that program doesn't support port forwarding currently and it's suitable only for local networks.
 
 ## Features:
 * Ipv4 
